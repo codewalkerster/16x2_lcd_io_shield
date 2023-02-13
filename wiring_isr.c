@@ -28,7 +28,7 @@ int main()
         return 1;
     }
 
-    while(true) {
+    while(1) {
         printf("%d\n", btnCounter);
         delay(1000);
     }

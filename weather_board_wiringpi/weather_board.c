@@ -26,6 +26,20 @@ static int lcdHandle  = 0;
 //
 static int DispMode = 0;
 
+static int ledPos = 0;
+
+const int ledPorts[] = {
+    21, // GPX2.4(#28)
+    22, // GPX2.6(#30)
+    23, // GPX2.7(#31)
+    24, //XU4 does not work because PIN Number 35 is POWERON not GPIO.
+    11, // GPX2.1(#25)
+    26, // GPX2.5(#29)
+    27, // GPX3.1(#33)
+};
+
+#define MAX_LED_CNT sizeof(ledPorts) / sizeof(ledPorts[0])
+
 static int pressure;
 static int temperature;
 static int humidity;
@@ -33,41 +47,76 @@ static float altitude;
 
 float SEALEVELPRESSURE_HPA = 1024.25;
 
-void getSi1132Data() {
+void getSi1132UVindex() {
 	char buf[LCD_COL];
 	int n;
 
 	memset(buf, ' ', sizeof(buf));
 
-	n = sprintf(buf, "UV index %.2f", Si1132_readUV()/100.0);
+	n = sprintf(buf, "UV index :");
 	strncpy(&lcdFb[0][0], buf, n);
-	n = sprintf(buf, "Vis %.0f IR %.0f L", Si1132_readVisible(), Si1132_readIR());
+	n = sprintf(buf, "%.2f", Si1132_readUV()/100.0);
 	strncpy(&lcdFb[1][0], buf, n);
 }
 
-void getBme280data1() {
+void getSi1132Visible() {
 	char buf[LCD_COL];
 	int n;
 
 	memset(buf, ' ', sizeof(buf));
 
-	bme280_read_pressure_temperature_humidity(
-		&pressure, &temperature, &humidity);
-	n = sprintf(buf, "temp %.2lf 'C", (double)temperature/100.0);
+	n = sprintf(buf, "Visible , IR :");
 	strncpy(&lcdFb[0][0], buf, n);
-	n = sprintf(buf, "humi %.2lf %%", (double)humidity/1024.0);
+	n = sprintf(buf, "%.0f : %.0f Lux", Si1132_readVisible(), Si1132_readIR());
 	strncpy(&lcdFb[1][0], buf, n);
 }
 
-void getBme280data2() {
+void getBme280Temperature() {
 	char buf[LCD_COL];
 	int n;
 
 	memset(buf, ' ', sizeof(buf));
 
-	n = sprintf(buf, "pres %.2lf hPa", (double)pressure/100.0);
+	n = sprintf(buf, "temperature :");
 	strncpy(&lcdFb[0][0], buf, n);
-	n = sprintf(buf, "alti %f m", bme280_readAltitude(pressure,
+	n = sprintf(buf, "%.2lf 'C", (double)temperature/100.0);
+	strncpy(&lcdFb[1][0], buf, n);
+}
+
+void getBme280Humidity() {
+	char buf[LCD_COL];
+	int n;
+
+	memset(buf, ' ', sizeof(buf));
+
+
+	n = sprintf(buf, "humiduty :");
+	strncpy(&lcdFb[0][0], buf, n);
+	n = sprintf(buf, "%.2lf %%", (double)humidity/1024.0);
+	strncpy(&lcdFb[1][0], buf, n);
+}
+
+void getBme280Pressure() {
+	char buf[LCD_COL];
+	int n;
+
+	memset(buf, ' ', sizeof(buf));
+
+	n = sprintf(buf, "pressure :");
+	strncpy(&lcdFb[0][0], buf, n);
+	n = sprintf(buf, "%.2lf hPa", (double)pressure/100.0);
+	strncpy(&lcdFb[1][0], buf, n);
+}
+
+void getBme280Altitude() {
+	char buf[LCD_COL];
+	int n;
+
+	memset(buf, ' ', sizeof(buf));
+
+	n = sprintf(buf, "altitude :");
+	strncpy(&lcdFb[0][0], buf, n);
+	n = sprintf(buf, "%f m", bme280_readAltitude(pressure,
 		SEALEVELPRESSURE_HPA));
 	strncpy(&lcdFb[1][0], buf, n);
 }
@@ -78,18 +127,31 @@ static void lcd_update (void)
 
 	// lcd fb clear
 	memset((void *)&lcdFb, ' ', sizeof(lcdFb));
+	if (DispMode  > 1) {
+		bme280_read_pressure_temperature_humidity(
+		&pressure, &temperature, &humidity);
+	}
 
 	// lcd fb update
 	switch(DispMode)    {
 		case 0:
-			getSi1132Data();
-		break;
+			getSi1132UVindex();
+			break;
 		case 1:
-			getBme280data1();
-		break;
+			getSi1132Visible();
+			break;
 		case 2:
-			getBme280data2();
-		break;
+			getBme280Temperature();
+			break;
+		case 3:
+			getBme280Humidity();
+			break;
+		case 4:
+			getBme280Pressure();
+			break;
+		case 5:
+			getBme280Altitude();
+			break;
 		default:
 			DispMode = 0;
 	}
@@ -104,6 +166,8 @@ static void lcd_update (void)
 void boardDataUpdate(void)
 {
 	int i;
+	for(i = 0; i < MAX_LED_CNT; i++)
+		digitalWrite (ledPorts[i], 0); // LED All Clear
 
 	// button status read
 	if(!digitalRead (PORT_BUTTON1)) {
@@ -118,6 +182,8 @@ void boardDataUpdate(void)
 		else
 			DispMode = 0;
 	}
+
+	digitalWrite(ledPorts[DispMode], 1);
 }
 
 int system_init(void)
@@ -132,6 +198,12 @@ int system_init(void)
 	if (lcdHandle < 0) {
 		fprintf(stderr, "%s : lcdInit failed!\n", __func__);
 		return -1;
+	}
+
+	// GPIO Init(LED Port ALL Output)
+	for(i = 0; i < MAX_LED_CNT; i++) {
+		pinMode (ledPorts[i], OUTPUT);
+		pullUpDnControl (PORT_BUTTON1, PUD_OFF);
 	}
 
 	// Button Pull Up Enable.

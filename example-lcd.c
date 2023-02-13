@@ -20,6 +20,7 @@
 #include <wiringPiI2C.h>
 #include <wiringSerial.h>
 #include <lcd.h>
+#include "lcd_16x2.h"
  
 //------------------------------------------------------------------------------------------------------------
 //
@@ -32,23 +33,14 @@
 // LCD:
 //
 //------------------------------------------------------------------------------------------------------------
-#define LCD_ROW             2   // 16 Char
-#define LCD_COL             16  // 2 Line
-#define LCD_BUS             4   // Interface 4 Bit mode
+
 #define LCD_UPDATE_PERIOD   300 // 300ms
- 
+
 static unsigned char lcdFb[LCD_ROW][LCD_COL] = {0, };
- 
+
 static int lcdHandle  = 0;
 static int lcdDispPos = 0;
- 
-#define PORT_LCD_RS     7
-#define PORT_LCD_E      0
-#define PORT_LCD_D4     2
-#define PORT_LCD_D5     3
-#define PORT_LCD_D6     1
-#define PORT_LCD_D7     4
- 
+
 const unsigned char lcdDispString[LCD_ROW][LCD_COL] = {
     //1234567890123456
      " Hello! ODROID! ",
@@ -73,7 +65,7 @@ const int ledPorts[] = {
     21, 
     22,
     23,
-    24,
+    24, //XU4 does not work because PIN Number 35 is POWERON not GPIO.
     11,
     26,
     27,
